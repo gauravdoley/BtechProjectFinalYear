@@ -141,6 +141,7 @@ export const MODULES: ModuleData[] = [
 ];
 
 interface LearningModulesProps {
+  modules: ModuleData[];
   unlockedModules: string[];
   completedModules: string[];
   onCompleteModule: (moduleId: string) => void;
@@ -149,6 +150,7 @@ interface LearningModulesProps {
 }
 
 export default function LearningModules({
+  modules,
   unlockedModules,
   completedModules,
   onCompleteModule,
@@ -241,7 +243,7 @@ export default function LearningModules({
 
       {/* Grid of modules */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {MODULES.map((m) => {
+        {modules.map((m) => {
           const isUnlocked = unlockedModules.includes(m.id);
           const isCompleted = completedModules.includes(m.id);
           const themeClasses = getThemeClasses(m.id);
@@ -256,20 +258,20 @@ export default function LearningModules({
               } ${shakingModuleId === m.id ? "animate-shake border-rose-400 bg-rose-50/20" : ""}`}
             >
               {/* Top accent line */}
-              <div className={`h-3 w-full ${isUnlocked ? themeClasses.accentBg : "bg-slate-300"}`} />
+              <div className={`h-3 w-full transition-colors duration-500 ${isCompleted ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : isUnlocked ? themeClasses.accentBg : "bg-slate-300"}`} />
 
               {/* Card Body */}
               <div className="p-6 flex flex-col justify-between h-[340px]">
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full transition-colors duration-300 ${
                       isUnlocked 
                         ? isCompleted 
-                          ? "bg-green-100 text-green-800" 
+                          ? "bg-emerald-100 text-emerald-800 flex items-center gap-1 border border-emerald-200" 
                           : "bg-theme-primary-light text-theme-primary-dark" 
                         : "bg-slate-200 text-slate-500"
                     }`}>
-                      {m.difficulty}
+                      {isCompleted ? <><CheckCircle2 className="w-3 h-3" /> 100% Complete</> : m.difficulty}
                     </span>
                     <span className="text-xs text-slate-500 font-semibold">{m.readingTime}</span>
                   </div>
@@ -284,9 +286,9 @@ export default function LearningModules({
                   {isUnlocked ? (
                     isCompleted ? (
                       <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-green-600 font-bold text-sm">
-                          <CheckCircle2 className="w-5 h-5 fill-green-100" />
-                          <span>Module Completed!</span>
+                        <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm bg-emerald-50 py-2 px-3 rounded-xl border border-emerald-100 justify-center">
+                          <CheckCircle2 className="w-5 h-5 fill-emerald-100" />
+                          <span>Module Mastered!</span>
                         </div>
                         <div className="bg-theme-primary-light border border-theme-primary/15 p-2.5 rounded-xl text-center flex flex-col items-center justify-center">
                           <p className="text-[10px] uppercase font-bold tracking-wider text-theme-primary">Next Stage Unlock Code</p>

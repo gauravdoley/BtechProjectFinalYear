@@ -1,29 +1,50 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, Award, BookOpen, Settings, BarChart3, Search, Shield, ChevronLeft } from "lucide-react";
+import { Users, Award, BookOpen, Settings, BarChart3, Search, Shield, ChevronLeft, Edit2, Check, X, User } from "lucide-react";
 import Link from "next/link";
-
-// Mock data for the frontend admin panel
-const MOCK_USERS = [
-  { id: "1", name: "Alex Johnson", email: "alex@example.com", points: 15420, modulesCompleted: 3, badges: 3, role: "Admin", status: "Active" },
-  { id: "2", name: "Sarah Smith", email: "sarah.s@example.com", points: 8900, modulesCompleted: 2, badges: 1, role: "User", status: "Active" },
-  { id: "3", name: "Mike Chen", email: "mike.chen@example.com", points: 4200, modulesCompleted: 1, badges: 0, role: "User", status: "Inactive" },
-  { id: "4", name: "Emma Davis", email: "emma.d@example.com", points: 21500, modulesCompleted: 3, badges: 5, role: "User", status: "Active" },
-  { id: "5", name: "James Wilson", email: "j.wilson@example.com", points: 1200, modulesCompleted: 0, badges: 0, role: "User", status: "Active" },
-];
+import { MODULES, ModuleData } from "../components/LearningModules";
+import ModuleEditor from "./components/ModuleEditor";
+import { UserProfile, UserButton } from "@clerk/nextjs";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("overview");
+  const [users, setUsers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "content" | "settings" | "profile">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTheme, setActiveTheme] = useState("teal");
+  const [modules, setModules] = useState<ModuleData[]>(MODULES);
+  const [editingModule, setEditingModule] = useState<ModuleData | "new" | null>(null);
+  
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editPointsValue, setEditPointsValue] = useState<number>(0);
 
-  // Load the active theme to match the main site
+  const savePoints = (userId: string) => {
+    setUsers(users.map(u => u.id === userId ? { ...u, points: editPointsValue } : u));
+    setEditingUserId(null);
+  };
+
+  // Load data from API
   useEffect(() => {
-    const savedTheme = localStorage.getItem("aquaquest_theme");
-    if (savedTheme) {
-       setActiveTheme(savedTheme === "classic" || savedTheme === "theme-classic" ? "teal" : savedTheme);
+    async function fetchData() {
+      try {
+        const [usersRes, modulesRes] = await Promise.all([
+          fetch('/api/admin/users'),
+          fetch('/api/modules')
+        ]);
+        
+        const usersData = await usersRes.json();
+        const modulesData = await modulesRes.json();
+        
+        if (!usersData.error) setUsers(usersData);
+        if (!modulesData.error && modulesData.length > 0) setModules(modulesData);
+      } catch (err) {
+        console.error("Failed to load admin data:", err);
+      } finally {
+        setIsLoading(false);
+      }
     }
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -39,7 +60,7 @@ export default function AdminDashboard() {
     document.body.classList.add(`theme-${activeTheme}`);
   }, [activeTheme]);
 
-  const filteredUsers = MOCK_USERS.filter(user => 
+  const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -58,7 +79,7 @@ export default function AdminDashboard() {
               <h1 className="text-lg font-black tracking-tight text-theme-primary-dark leading-tight">
                 Admin Panel
               </h1>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AquaQuest</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Ocean Guardian</p>
             </div>
           </div>
         </div>
@@ -111,23 +132,36 @@ export default function AdminDashboard() {
             <Settings className="w-4 h-4" />
             Settings
           </button>
+
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-extrabold text-sm transition-all ${
+              activeTab === "profile"
+                ? "bg-theme-primary text-white shadow-sm"
+                : "text-slate-500 hover:bg-theme-primary/10 hover:text-theme-primary-dark"
+            }`}
+          >
+            <User className="w-4 h-4" />
+            Profile
+          </button>
         </nav>
 
-        <div className="p-3 border-t border-theme-primary/10">
-          <Link 
-            href="/"
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg font-extrabold text-sm text-theme-primary-dark bg-theme-primary-light hover:bg-theme-primary/20 transition-colors"
-          >
+        <div className="p-4 border-t border-theme-primary/10">
+          <Link href="/client" className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-theme-primary transition-colors mb-4">
             <ChevronLeft className="w-4 h-4" />
             Back to App
           </Link>
+          <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <UserButton />
+            <span className="text-xs font-bold text-slate-600">Admin Session</span>
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header (visible only on small screens) */}
-        <header className="md:hidden bg-white/80 backdrop-blur-md border-b border-theme-primary/10 p-3 flex items-center justify-between sticky top-0 z-30">
+        <header className="md:hidden bg-white/80 backdrop-blur-md border-b border-theme-primary/10 p-3 flex items-center justify-between z-30">
           <div className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-theme-primary" />
             <span className="font-black text-base text-theme-primary-dark">Admin</span>
@@ -137,23 +171,27 @@ export default function AdminDashboard() {
           </Link>
         </header>
 
-        <div className="p-4 md:p-6 max-w-6xl mx-auto w-full">
+        <div className="flex-1 p-4 md:p-8 w-full h-full overflow-y-auto">
           {activeTab === "overview" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="mb-4">
-                <h2 className="text-2xl font-black text-slate-800">Dashboard Overview</h2>
-                <p className="text-slate-500 font-bold text-xs mt-0.5">Monitor your platform's engagement and growth.</p>
+              <div className="mb-6">
+                <h2 className="text-2xl font-black text-slate-800">Overview</h2>
+                <p className="text-slate-500 font-bold text-xs mt-0.5">Welcome back to the command center.</p>
               </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20">
+                  <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-theme-primary animate-spin"></div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
                   <div className="absolute -right-4 -top-4 w-16 h-16 bg-theme-secondary/10 rounded-full group-hover:scale-150 transition-transform duration-500"></div>
                   <div className="relative z-10">
                     <div className="w-10 h-10 rounded-xl bg-theme-secondary/20 flex items-center justify-center mb-3 text-theme-secondary">
                       <Users className="w-5 h-5" />
                     </div>
-                    <p className="text-2xl font-black text-slate-800">1,248</p>
+                    <p className="text-2xl font-black text-slate-800">{users.length}</p>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Total Guardians</p>
                   </div>
                 </div>
@@ -164,8 +202,8 @@ export default function AdminDashboard() {
                     <div className="w-10 h-10 rounded-xl bg-theme-primary/20 flex items-center justify-center mb-3 text-theme-primary-dark">
                       <BookOpen className="w-5 h-5" />
                     </div>
-                    <p className="text-2xl font-black text-slate-800">8,592</p>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Modules Completed</p>
+                    <p className="text-2xl font-black text-slate-800">{modules.length}</p>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Total Modules</p>
                   </div>
                 </div>
 
@@ -175,7 +213,7 @@ export default function AdminDashboard() {
                     <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center mb-3 text-amber-500">
                       <Award className="w-5 h-5" />
                     </div>
-                    <p className="text-2xl font-black text-slate-800">3,420</p>
+                    <p className="text-2xl font-black text-slate-800">{users.reduce((acc, u) => acc + (u.badges || 0), 0)}</p>
                     <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">Badges Earned</p>
                   </div>
                 </div>
@@ -186,11 +224,12 @@ export default function AdminDashboard() {
                     <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3 text-white">
                       <BarChart3 className="w-5 h-5" />
                     </div>
-                    <p className="text-2xl font-black text-white">45.2M</p>
+                    <p className="text-2xl font-black text-white">{users.reduce((acc, u) => acc + (u.points || 0), 0).toLocaleString()}</p>
                     <p className="text-[10px] font-bold text-theme-primary-light uppercase tracking-wider mt-0.5">Total Points</p>
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Quick Actions & Recent Activity */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -200,7 +239,7 @@ export default function AdminDashboard() {
                     Top Performing Users
                   </h3>
                   <div className="space-y-2.5">
-                    {MOCK_USERS.slice(0, 3).map((user, idx) => (
+                    {users.sort((a,b) => b.points - a.points).slice(0, 3).map((user, idx) => (
                       <div key={user.id} className="flex items-center p-3 rounded-xl bg-slate-50 hover:bg-theme-primary/5 transition-colors border border-slate-100">
                         <div className={`w-8 h-8 text-sm rounded-full flex items-center justify-center font-black text-white ${idx === 0 ? 'bg-amber-400' : idx === 1 ? 'bg-slate-400' : 'bg-amber-700'}`}>
                           #{idx + 1}
@@ -217,66 +256,54 @@ export default function AdminDashboard() {
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-theme-primary-light rounded-2xl p-5 border border-theme-primary/20">
-                  <h3 className="text-lg font-black text-theme-primary-dark mb-1.5">Supabase Backend</h3>
-                  <p className="text-xs font-semibold text-slate-600 mb-4">
-                    Backend integration is currently pending.
-                  </p>
-                  <div className="bg-white/60 p-3 rounded-xl border border-theme-primary/10">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Status</span>
-                      <span className="text-[9px] bg-slate-200 text-slate-600 font-black px-1.5 py-0.5 rounded-md">DISCONNECTED</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5 mb-1">
-                      <div className="bg-slate-400 h-1.5 rounded-full" style={{ width: '0%' }}></div>
-                    </div>
-                    <p className="text-[9px] text-center text-slate-400 font-bold mt-1.5">Waiting for integration</p>
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
           {activeTab === "users" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-2xl font-black text-slate-800">User Management</h2>
-                  <p className="text-slate-500 font-bold text-xs mt-0.5">View and manage all registered players.</p>
+                  <p className="text-slate-500 font-bold text-xs mt-0.5">View and manage registered explorers.</p>
                 </div>
                 
-                <div className="relative w-full md:w-auto">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search users..."
+                <div className="relative group">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-theme-primary transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="Search users..." 
+                    className="w-full md:w-64 pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm font-bold focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary transition-all shadow-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full md:w-56 pl-8 pr-3 py-1.5 rounded-lg border-2 border-slate-200 focus:border-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary/10 transition-all font-semibold text-xs placeholder:text-slate-400 text-slate-800 bg-white"
                   />
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-theme-primary animate-spin"></div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+                  <div className="overflow-x-auto flex-1">
+                  <table className="w-full text-left min-w-full">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">User</th>
-                        <th className="px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Points</th>
-                        <th className="px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Progress</th>
-                        <th className="px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Role</th>
-                        <th className="px-4 py-2.5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">User</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Points</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Progress</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Role</th>
+                        <th className="px-4 py-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredUsers.length > 0 ? (
                         filteredUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-4 py-2">
+                          <tr key={user.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-4 py-3">
                               <div className="flex items-center">
-                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-theme-primary to-theme-secondary flex items-center justify-center text-white text-xs font-black shadow-sm">
+                                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-theme-primary to-theme-secondary flex items-center justify-center text-white text-xs font-black shadow-sm group-hover:scale-105 transition-transform">
                                   {user.name.charAt(0)}
                                 </div>
                                 <div className="ml-3">
@@ -285,29 +312,54 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-2">
-                              <span className="font-black text-sm text-amber-500">{user.points.toLocaleString()}</span>
+                            <td className="px-4 py-3">
+                              {editingUserId === user.id ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input 
+                                    type="number" 
+                                    value={editPointsValue} 
+                                    onChange={(e) => setEditPointsValue(Number(e.target.value))}
+                                    className="w-24 px-2 py-1 text-sm font-bold border border-slate-300 rounded-md focus:border-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-primary"
+                                  />
+                                  <button onClick={() => savePoints(user.id)} className="p-1 rounded bg-emerald-100 text-emerald-600 hover:bg-emerald-200">
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button onClick={() => setEditingUserId(null)} className="p-1 rounded bg-rose-100 text-rose-600 hover:bg-rose-200">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 group/points">
+                                  <span className="font-black text-sm text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">{user.points.toLocaleString()} pts</span>
+                                  <button 
+                                    onClick={() => { setEditingUserId(user.id); setEditPointsValue(user.points); }}
+                                    className="opacity-0 group-hover/points:opacity-100 transition-opacity text-slate-400 hover:text-theme-primary p-1 rounded hover:bg-theme-primary/10"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                             </td>
-                            <td className="px-4 py-2">
-                              <div className="flex flex-col gap-1">
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col gap-1 w-full max-w-[150px]">
                                 <span className="text-[10px] font-bold text-slate-600">{user.modulesCompleted}/3 Modules</span>
-                                <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                   <div 
-                                    className="h-full bg-theme-primary rounded-full" 
+                                    className="h-full bg-theme-primary rounded-full transition-all duration-1000" 
                                     style={{ width: `${(user.modulesCompleted / 3) * 100}%` }}
                                   ></div>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-2">
-                              <span className={`px-2 py-0.5 inline-flex text-[9px] leading-4 font-black uppercase tracking-wider rounded-md ${
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 inline-flex text-[9px] leading-4 font-black uppercase tracking-wider rounded-md ${
                                 user.role === 'Admin' ? 'bg-theme-secondary/10 text-theme-secondary' : 'bg-slate-100 text-slate-600'
                               }`}>
                                 {user.role}
                               </span>
                             </td>
-                            <td className="px-4 py-2">
-                              <span className={`px-2 py-0.5 inline-flex text-[9px] leading-4 font-black uppercase tracking-wider rounded-md ${
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 inline-flex text-[9px] leading-4 font-black uppercase tracking-wider rounded-md ${
                                 user.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                               }`}>
                                 {user.status}
@@ -317,8 +369,11 @@ export default function AdminDashboard() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-xs text-slate-500 font-bold">
-                            No users found matching "{searchQuery}"
+                          <td colSpan={5} className="px-4 py-12 text-center text-sm text-slate-500 font-bold">
+                            <div className="flex flex-col items-center justify-center text-slate-400">
+                              <Search className="w-8 h-8 mb-2 opacity-20" />
+                              <p>No users found matching "{searchQuery}"</p>
+                            </div>
                           </td>
                         </tr>
                       )}
@@ -326,55 +381,100 @@ export default function AdminDashboard() {
                   </table>
                 </div>
                 
-                <div className="px-4 py-2.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-500">Showing {filteredUsers.length} users</span>
-                  <div className="flex gap-1.5">
-                    <button disabled className="px-2.5 py-1 rounded-md border border-slate-200 text-[10px] font-bold text-slate-400 bg-slate-100 cursor-not-allowed">Previous</button>
-                    <button disabled className="px-2.5 py-1 rounded-md border border-slate-200 text-[10px] font-bold text-slate-400 bg-slate-100 cursor-not-allowed">Next</button>
+                <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+                  <span className="text-xs font-bold text-slate-500">Showing {filteredUsers.length} of {users.length} users</span>
+                  <div className="flex gap-2">
+                    <button disabled className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-400 bg-slate-100 cursor-not-allowed">Previous</button>
+                    <button disabled className="px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-400 bg-slate-100 cursor-not-allowed">Next</button>
+                  </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
           {activeTab === "content" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+              <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-black text-slate-800">Content Management</h2>
                   <p className="text-slate-500 font-bold text-xs mt-0.5">Manage learning modules and badges.</p>
                 </div>
-                <button className="px-4 py-2 rounded-lg bg-theme-primary text-white font-extrabold text-xs shadow-sm hover:bg-theme-primary-hover transition-colors">
-                  + Create New Module
-                </button>
+                {!editingModule && (
+                  <button 
+                    onClick={() => setEditingModule("new")}
+                    className="px-4 py-2 rounded-lg bg-theme-primary text-white font-extrabold text-xs shadow-sm hover:bg-theme-primary-hover transition-colors"
+                  >
+                    + Create New Module
+                  </button>
+                )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Active Modules List */}
-                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-                  <h3 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-theme-secondary" />
-                    Active Modules
-                  </h3>
-                  <div className="space-y-2.5">
-                    {["Ocean Basics", "Coral Reefs", "Deep Sea Mysteries"].map((mod, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-theme-primary/30 transition-all">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-white text-sm ${i === 0 ? 'bg-theme-primary' : i === 1 ? 'bg-theme-secondary' : 'bg-theme-accent'}`}>
-                            {i + 1}
+              {editingModule ? (
+                <ModuleEditor 
+                  initialData={editingModule === "new" ? null : editingModule}
+                  onSave={async (newModuleData) => {
+                    let updatedModules;
+                    if (editingModule === "new") {
+                      updatedModules = [...modules, newModuleData];
+                    } else {
+                      updatedModules = modules.map(m => m.id === newModuleData.id ? newModuleData : m);
+                    }
+                    setModules(updatedModules);
+                    setEditingModule(null);
+                    
+                    // Fire save to API
+                    await fetch('/api/modules', {
+                      method: 'POST',
+                      body: JSON.stringify(newModuleData)
+                    });
+                  }}
+                  onCancel={() => setEditingModule(null)}
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Active Modules List */}
+                  <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                    <h3 className="text-lg font-black text-slate-800 mb-3 flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-theme-secondary" />
+                      Active Modules
+                    </h3>
+                    <div className="space-y-2.5">
+                      {modules.map((mod, i) => (
+                        <div key={mod.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-theme-primary/30 transition-all">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-white text-sm ${mod.accentColor}`}>
+                              {i + 1}
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-slate-800">{mod.title}</p>
+                              <p className="text-[10px] text-slate-500 font-semibold">{mod.difficulty} • {mod.readingTime}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-slate-800">{mod}</p>
-                            <p className="text-[10px] text-slate-500 font-semibold">Updated 2 days ago</p>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => setEditingModule(mod)}
+                              className="text-[10px] font-bold bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md hover:bg-slate-100"
+                            >
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm(`Delete ${mod.title}?`)) {
+                                  const newMods = modules.filter(m => m.id !== mod.id);
+                                  setModules(newMods);
+                                  localStorage.setItem("Ocean Guardian_modules", JSON.stringify(newMods));
+                                }
+                              }}
+                              className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-md hover:bg-rose-100"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
-                        <button className="text-[10px] font-bold bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md hover:bg-slate-100">
-                          Edit
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
 
                 {/* Badge Management */}
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
@@ -397,6 +497,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
 
@@ -414,12 +515,12 @@ export default function AdminDashboard() {
                   
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Platform Name</label>
-                    <input type="text" defaultValue="AquaQuest" className="w-full px-3 py-2 rounded-lg border-2 border-slate-200 focus:border-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary/10 transition-all font-semibold text-sm text-slate-800" />
+                    <input type="text" defaultValue="Ocean Guardian" className="w-full px-3 py-2 rounded-lg border-2 border-slate-200 focus:border-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary/10 transition-all font-semibold text-sm text-slate-800" />
                   </div>
 
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Support Email</label>
-                    <input type="email" defaultValue="support@aquaquest.edu" className="w-full px-3 py-2 rounded-lg border-2 border-slate-200 focus:border-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary/10 transition-all font-semibold text-sm text-slate-800" />
+                    <input type="email" defaultValue="support@Ocean Guardian.edu" className="w-full px-3 py-2 rounded-lg border-2 border-slate-200 focus:border-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary/10 transition-all font-semibold text-sm text-slate-800" />
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -456,6 +557,18 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "profile" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="mb-4">
+                <h2 className="text-2xl font-black text-slate-800">Admin Profile</h2>
+                <p className="text-slate-500 font-bold text-xs mt-0.5">Manage your admin account details.</p>
+              </div>
+              <div className="flex justify-center bg-white rounded-2xl p-8 border border-slate-200 shadow-sm">
+                <UserProfile routing="hash" />
               </div>
             </div>
           )}

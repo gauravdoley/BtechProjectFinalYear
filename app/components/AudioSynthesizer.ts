@@ -1,4 +1,4 @@
-// Web Audio API Synthesizer for AquaQuest
+// Web Audio API Synthesizer for Ocean Guardian
 // This allows the app to have rich sound effects with zero external audio assets!
 
 let audioCtx: AudioContext | null = null;
